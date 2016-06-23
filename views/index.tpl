@@ -8,7 +8,7 @@
     {{dot}}
 </script>
 
-<script src="http://mdaines.github.io/viz.js/viz.js"></script>
+<script src="http://mdaines.github.io/viz.js/bower_components/viz.js/viz.js"></script>
 
 <center><div id="graph"></div></center>
 
