@@ -5,7 +5,7 @@
 
 <body>
 <script type="text/vnd.graphviz" id="graph">
-    {{dot}}
+    {{!dot}}
 </script>
 
 <script src="http://mdaines.github.io/viz.js/bower_components/viz.js/viz.js"></script>
