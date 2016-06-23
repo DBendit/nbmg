@@ -1,22 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from random import randint, choice, uniform
+from random import randint, sample, choice
+from pydot.pydot import *
+from math import ceil
+from itertools import chain
 
-def pathExists(paths, r1, r2):
-    for p in paths:
-        p0=p[0]
-        p1=p[1]
-        if p0 == r1 and p1 == r2:
-            return True
-        if p0 == r2 and p1 == r1:
-            return True
-    return False
-	
-def saveToFile(filename, content):
-    text_file = open(filename, "w")
-    text_file.write(content)
-    text_file.close()
-	
 def settings_ger():
     dungeon={"name": ["Kerker", "Festung", "Verlies", "Bastille", "Turm", "Zwingburg"],
              "suffix": ["des Schreckens", "der Verdammnis", "der Dunkelheit",  "der Schatten", "des Wahnsinns", "der Verzweiflung", "des Todes"],
@@ -87,73 +75,58 @@ def settings_eng():
     settings=[dungeon, wilderness, cavern,catacomb]
     return settings    
         
-	
-def generate(nexus, levels,maxrooms):
-    # SETUP DATA STRUCTURES
-    entries=[]
-    allrooms=[]
-    metapaths=[]
-    allpaths=[]
+def generatePathsForLevel(rooms):
+    paths = []
+    for origin in rooms:
+        otherRooms = list(rooms)
+        otherRooms.remove(origin)
+        destination = choice(otherRooms)
+        paths.append({"origin": origin, "destination": destination})
+    return paths
+
+def generateDot(nexus, levels, maxRooms, additionalPathProbability, metaPathProbability):
     settings=settings_eng()
-    lines=[]
-    lines.append("graph G{")
-    #GENERATE <levels> SUB-LEVELS
-    for s in range(0, levels):
-     currentSetting= choice(settings)
-     numrooms= randint(4,min(len(currentSetting["rooms"]),maxrooms))
-     rooms=[]
-     paths=[]
-     
-     #Choose <numrooms> unique room descriptions from list
-     while len(rooms) < numrooms:
-       newroom=choice(currentSetting["rooms"])
-       if(newroom not in rooms):
-          rooms.append(newroom)
-          allrooms.append(str("["+str(s)+"] "+newroom))
-     
-     #connect each room to exactly one other random room
-     for r1 in rooms:
-       r2=choice(rooms)
-       tries=0
-       while tries <100 and r2==r1 or pathExists(paths, r1, r2):         
-         r2 = choice(rooms)         
-         tries=tries+1
-       paths.append([r1,r2, choice(currentSetting["paths"])])
-     #Add a few other connections
-     prob_path=0.03
-     for r1 in rooms:
-       for r2 in rooms:
-         if(r1 != r2 and uniform(0,1) < prob_path and not pathExists(paths, r1, r2)):                           
-             paths.append([r1,r2 , choice(currentSetting["paths"])])
-             allpaths.append(paths[len(paths)-1])
-     #Select a random entry point
-     entries.append(str("["+str(s)+"] "+choice(rooms)))
-     
+    allPaths = []
+    allRooms = []
+    roomCount = 0
+
+    graph = Graph(graph_type = "graph")
+    graph.add_node(Node(nexus, shape = "tripleoctagon"))
+
+    for level in range(0, levels):
+        currentSetting = choice(settings)
+
+        cluster = Cluster(str(level))
+        graph.add_subgraph(cluster)
+        cluster.set_label("%s %s" % (choice(currentSetting["name"]), choice(currentSetting["suffix"])))
+        cluster.set_color(currentSetting["cellcolor"])
+        cluster.set_node_defaults(style = "filled", color = currentSetting["cellcolor"], shape = currentSetting["cellshape"])
+
+        numRooms = randint(4, min(len(currentSetting["rooms"]), maxRooms))
+        rooms = ["[%i] %s" % (level, room) for room in sample(currentSetting["rooms"], numRooms)]
+        allRooms.append(rooms)
+        roomCount = roomCount + len(rooms)
+        
+        # Connect each room to exactly one other random room
+        for path in [Edge(path["origin"], path["destination"], label = choice(currentSetting["paths"])) for path in generatePathsForLevel(rooms)]:
+            cluster.add_edge(path)
+
+        # Add a few other connections
+        for extraPath in range(0, randint(0, ceil(numRooms ** 2 * additionalPathProbability))):
+            cluster.add_edge(Edge(*sample(rooms, 2), label = choice(currentSetting["paths"])))
+
+        allPaths.extend(cluster.get_edges())
+
+        # Select a random entry point
+        graph.add_edge(Edge(nexus, choice(rooms)))
    
-     lines.append( "subgraph cluster_"+str(s)+"{")
-     lines.append( "color ="+currentSetting["cellcolor"]+";")
-     lines.append( "node [style=filled,color="+currentSetting["cellcolor"]+",shape="+currentSetting["cellshape"]+"];")
-     for p in paths:
-        lines.append( "\"["+str(s)+"] "+p[0]+"\" -- "+ "\"["+str(s)+"] "+p[1]+"\"" + " [ label = \""+p[2]+"\" ];")
-     lines.append( "label = \""+choice(currentSetting["name"])+" "+ choice(currentSetting["suffix"])+ "\";")
-     lines.append( "}")
-    			   
-    
-    #Create paths between levels
-    for r1 in allrooms:
-       for r2 in allrooms:
-         if(r1 != r2 and uniform(0,1) < 0.01 and not pathExists(allpaths, r1, r2)):   
-             if(r1[1] != r2[1]):
-               metapaths.append( [r1, r2] )     
-    for p in entries:
-         lines.append("\""+ nexus+ "\" -- \""+ p+"\"" + " [ style=dotted];")
-    for p in metapaths:    
-         lines.append( "\""+ p[0] +"\" -- \""+ p[1] +"\"" + " [ style=dotted];"   ) 
-    lines.append( "\"" + nexus +"\"  [shape=tripleoctagon];")         
-    lines.append("}")
-    lines.append( "\"" + nexus +"\"  [shape=tripleoctagon];")  
-    Dot='\n'.join(lines)  
-    return Dot
-    	
+    # Create paths between levels
+    for metaPath in range(0, randint(0, ceil(roomCount ** 2 * metaPathProbability))):
+        connectedLevels = sample(range(0, levels), 2)
+        path = Edge(choice(allRooms[connectedLevels[0]]), choice(allRooms[connectedLevels[1]]), style = "dotted")
+        graph.add_edge(path)
+ 
+    return graph.to_string()
+        
 if __name__ == '__main__':
-    print(generate("Nexus", 4,10 ))
+    print(generateDot("Nexus", 4, 10, 0.03, 0.01))

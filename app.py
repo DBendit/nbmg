@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 import bottle
-from plugins.generate import generate
+from plugins.generator import generateDot
 
 app = application = bottle.Bottle()
 
 @app.route('/')
 def show_index():
-    return bottle.template('index', dot=generate("Nexus", 4, 10))
+    return bottle.template('index', dot=generateDot("Nexus", 4, 10, 0.03, 0.01))
 
 class StripPathMiddleware(object):
     def __init__(self, a):
