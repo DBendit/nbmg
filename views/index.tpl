@@ -10,7 +10,7 @@
 
 <script src="http://mdaines.github.io/viz.js/bower_components/viz.js/viz.js"></script>
 
-<center><div id="graph"></div></center>
+<center><div id="graph_div"></div></center>
 
 <script>
     function inspect(s) {
@@ -34,7 +34,7 @@
         }
       }
 
-      document.getElementById("graph").innerHTML = example("graph", "svg", "neato");
+      document.getElementById("graph_div").innerHTML = example("graph", "svg", "neato");
 </script>
 </body>
 </html>
